@@ -1,0 +1,36 @@
+{
+  "name": "quarter-billboard-grid",
+  "version": "1.0.0",
+  "description": "25 million pixel grid visualization",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@fontsource/press-start-2p": "^5.2.7",
+    "@prisma/client": "^6.17.0",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "gif.js": "^0.2.0",
+    "lucide-react": "^0.544.0",
+    "next": "^14.0.0",
+    "prisma": "^6.17.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.9.3",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@types/node": "24.5.2",
+    "@types/react": "19.1.15",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.3.0",
+    "typescript": "5.9.2"
+  }
+}
