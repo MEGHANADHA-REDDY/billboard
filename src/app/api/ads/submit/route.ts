@@ -7,6 +7,15 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate database connection
+    if (!process.env.DATABASE_URL) {
+      console.error('DATABASE_URL is not set');
+      return NextResponse.json(
+        { error: 'Database configuration missing' },
+        { status: 500 }
+      );
+    }
+    
     const formData = await request.formData();
     
     const userId = formData.get('userId') as string;
@@ -103,15 +112,35 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Ad submission error:', error);
-    // Return more detailed error message in development, generic in production
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? error?.message || 'Internal server error'
-      : 'Internal server error';
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      stack: error?.stack,
+    });
+    
+    // Check for specific error types
+    if (error?.code === 'P1001' || error?.message?.includes('Can\'t reach database')) {
+      return NextResponse.json(
+        { error: 'Database connection failed. Please check DATABASE_URL environment variable.' },
+        { status: 500 }
+      );
+    }
+    
+    if (error?.message?.includes('Cloudinary')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+    
+    // Return error message - will be logged in Vercel
+    const errorMessage = error?.message || 'Internal server error';
     
     return NextResponse.json(
       { 
         error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+        code: error?.code,
       },
       { status: 500 }
     );

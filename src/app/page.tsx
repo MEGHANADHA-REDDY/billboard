@@ -292,10 +292,11 @@ export default function Landing() {
   };
 
   const onWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
     const canvas = canvasRef.current;
     if (!canvas) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
 
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.1, Math.min(50, viewport.zoom * scaleFactor));

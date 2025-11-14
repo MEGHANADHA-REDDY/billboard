@@ -63,10 +63,12 @@ export async function GET() {
 
   } catch (error: any) {
     console.error('Error fetching active ads:', error);
-    // Return more detailed error for debugging
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? error?.message || 'Internal server error'
-      : 'Internal server error';
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      stack: error?.stack,
+    });
     
     // Check for common database connection errors
     if (error?.code === 'P1001' || error?.message?.includes('Can\'t reach database')) {
@@ -76,10 +78,13 @@ export async function GET() {
       );
     }
     
+    // Return error message - will be logged in Vercel
+    const errorMessage = error?.message || 'Internal server error';
+    
     return NextResponse.json(
       { 
         error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+        code: error?.code,
       },
       { status: 500 }
     );

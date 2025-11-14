@@ -263,7 +263,7 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
   };
 
   return (
-    <div className="space-y-4" onWheel={(e) => e.preventDefault()}>
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-gray-300 text-sm">Select Grid Cells</h3>
         <span className="text-gray-500 text-xs">
