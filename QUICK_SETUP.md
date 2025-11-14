@@ -27,8 +27,10 @@
 ### 3. Deploy!
 
 - Push to git or trigger a new deployment
-- Migrations run automatically during build
+- Migrations run automatically during build (only if DATABASE_URL is set)
 - ✅ Done!
+
+**⚠️ Important:** Make sure to set `DATABASE_URL` in Vercel **BEFORE** deploying, otherwise the build will fail!
 
 ---
 

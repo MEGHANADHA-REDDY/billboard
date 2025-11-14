@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { writeFile } from 'fs/promises';
-import { join } from 'path';
+import { uploadToCloudinary } from '@/lib/cloudinary';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,21 +23,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save uploaded file
+    // Validate Cloudinary configuration
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      return NextResponse.json(
+        { error: 'Cloudinary is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.' },
+        { status: 500 }
+      );
+    }
+
+    // Upload file to Cloudinary
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const fileName = `${Date.now()}-${file.name}`;
-    const filePath = join(process.cwd(), 'public', 'uploads', fileName);
-    
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads');
-    const fs = require('fs');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-    
-    await writeFile(filePath, buffer);
-    const mediaUrl = `/uploads/${fileName}`;
+    const uploadResult = await uploadToCloudinary(
+      buffer,
+      'billboard-ads',
+      mediaType === 'video' ? 'video' : 'image'
+    );
+    const mediaUrl = uploadResult.secure_url;
 
     // Create ad with positions
     const ad = await prisma.ad.create({
