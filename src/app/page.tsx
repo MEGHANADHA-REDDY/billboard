@@ -15,6 +15,7 @@ export default function Landing() {
   const [selectedCell, setSelectedCell] = useState<{ x: number; y: number } | null>(null);
   const [activeAds, setActiveAds] = useState<any[]>([]);
   const [hoveredAd, setHoveredAd] = useState<string | null>(null);
+  const miniMapRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -54,6 +55,12 @@ export default function Landing() {
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCell, activeAds, hoveredAd]);
+
+  // Draw mini map
+  useEffect(() => {
+    drawMiniMap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport, activeAds]);
 
 
   // Fetch active ads and preload images
@@ -156,6 +163,81 @@ export default function Landing() {
     }
 
     // Grid is now just for background - ads will be rendered as HTML overlays
+  };
+
+  const drawMiniMap = () => {
+    const miniMapCanvas = miniMapRef.current;
+    if (!miniMapCanvas) {
+      console.log('Mini map canvas not found');
+      return;
+    }
+    const context = miniMapCanvas.getContext('2d');
+    if (!context) {
+      console.log('Mini map context not found');
+      return;
+    }
+
+    const miniMapSize = 200;
+    const GRID_SIZE = 5000;
+    
+    // Set canvas size
+    miniMapCanvas.width = miniMapSize;
+    miniMapCanvas.height = miniMapSize;
+    miniMapCanvas.style.width = `${miniMapSize}px`;
+    miniMapCanvas.style.height = `${miniMapSize}px`;
+
+    // Clear canvas
+    context.clearRect(0, 0, miniMapSize, miniMapSize);
+
+    // Draw plain background
+    context.fillStyle = 'rgba(20, 20, 20, 0.95)';
+    context.fillRect(0, 0, miniMapSize, miniMapSize);
+
+    // Draw subtle grid lines for reference
+    context.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    context.lineWidth = 0.5;
+    
+    const gridStep = miniMapSize / 10; // 10x10 grid for reference
+    for (let i = 0; i <= 10; i++) {
+      const pos = i * gridStep;
+      context.beginPath();
+      context.moveTo(pos, 0);
+      context.lineTo(pos, miniMapSize);
+      context.stroke();
+      
+      context.beginPath();
+      context.moveTo(0, pos);
+      context.lineTo(miniMapSize, pos);
+      context.stroke();
+    }
+
+    // Calculate current position as a percentage of the total grid
+    const pixelSize = Math.max(1, Math.floor(viewport.zoom * 2));
+    const screenWidth = sizeRef.current.width || window.innerWidth;
+    const screenHeight = sizeRef.current.height || window.innerHeight;
+    
+    // Get current viewport center in world coordinates
+    const currentCenterX = (viewport.x + screenWidth / 2) / pixelSize;
+    const currentCenterY = (viewport.y + screenHeight / 2) / pixelSize;
+    
+    // Convert to mini map coordinates (0 to miniMapSize)
+    const dotX = ((currentCenterX % GRID_SIZE + GRID_SIZE) % GRID_SIZE) / GRID_SIZE * miniMapSize;
+    const dotY = ((currentCenterY % GRID_SIZE + GRID_SIZE) % GRID_SIZE) / GRID_SIZE * miniMapSize;
+
+    // Draw current position as a bright dot
+    context.fillStyle = '#00fff7';
+    context.shadowColor = '#00fff7';
+    context.shadowBlur = 8;
+    context.beginPath();
+    context.arc(dotX, dotY, 4, 0, 2 * Math.PI);
+    context.fill();
+    
+    // Draw a smaller inner dot for better visibility
+    context.shadowBlur = 0;
+    context.fillStyle = '#ffffff';
+    context.beginPath();
+    context.arc(dotX, dotY, 2, 0, 2 * Math.PI);
+    context.fill();
   };
 
 
@@ -318,14 +400,14 @@ export default function Landing() {
     const currentCenterX = (viewport.x + screenWidth / 2) / pixelSize;
     const currentCenterY = (viewport.y + screenHeight / 2) / pixelSize;
 
-    let nearestAdInDirection = null;
-    let nearestAdOpposite = null;
-    let nearestAdTopBottom = null;
-    let minDistanceInDirection = Infinity;
-    let minDistanceOpposite = Infinity;
-    let minDistanceTopBottom = Infinity;
+    console.log('Current position:', currentCenterX, currentCenterY);
+    console.log('Looking for ads in direction:', direction);
 
-    activeAds.forEach(ad => {
+    let bestAd = null;
+    let bestDistance = Infinity;
+
+    // First pass: find ads in the specified direction
+    activeAds.forEach((ad, adIndex) => {
       if (ad.positions.length === 0) return;
 
       // Calculate ad center
@@ -337,7 +419,9 @@ export default function Landing() {
       const adCenterX = (minX + maxX) / 2;
       const adCenterY = (minY + maxY) / 2;
 
-      // Check all possible wrapped positions
+      console.log(`Ad ${adIndex}: center at (${adCenterX}, ${adCenterY})`);
+
+      // Check all possible wrapped positions (including wrapping)
       const offsets = [-GRID_SIZE, 0, GRID_SIZE];
       
       for (let offsetY of offsets) {
@@ -348,58 +432,85 @@ export default function Landing() {
           // Calculate distance to this wrapped position
           const dx = wrappedAdX - currentCenterX;
           const dy = wrappedAdY - currentCenterY;
-          const wrappedDistance = Math.sqrt(dx * dx + dy * dy);
+          const distance = Math.sqrt(dx * dx + dy * dy);
           
-          // Check if ad is in the specified direction
+          // Check if this ad is in the right direction
           let isInDirection = false;
-          let isOppositeDirection = false;
-          let isTopBottom = false;
           
           if (direction === 'left') {
+            // For left, we want ads that are to the left (smaller X)
             isInDirection = wrappedAdX < currentCenterX;
-            isOppositeDirection = wrappedAdX > currentCenterX;
-            isTopBottom = Math.abs(wrappedAdX - currentCenterX) < Math.abs(wrappedAdY - currentCenterY);
           } else if (direction === 'right') {
+            // For right, we want ads that are to the right (larger X)
             isInDirection = wrappedAdX > currentCenterX;
-            isOppositeDirection = wrappedAdX < currentCenterX;
-            isTopBottom = Math.abs(wrappedAdX - currentCenterX) < Math.abs(wrappedAdY - currentCenterY);
           }
           
-          // Priority 1: Ad in the specified direction
-          if (isInDirection && wrappedDistance < minDistanceInDirection) {
-            minDistanceInDirection = wrappedDistance;
-            nearestAdInDirection = { adCenterX: wrappedAdX, adCenterY: wrappedAdY };
-          }
-          
-          // Priority 2: Ad in opposite direction
-          if (isOppositeDirection && wrappedDistance < minDistanceOpposite) {
-            minDistanceOpposite = wrappedDistance;
-            nearestAdOpposite = { adCenterX: wrappedAdX, adCenterY: wrappedAdY };
-          }
-          
-          // Priority 3: Ad in top/bottom direction
-          if (isTopBottom && wrappedDistance < minDistanceTopBottom) {
-            minDistanceTopBottom = wrappedDistance;
-            nearestAdTopBottom = { adCenterX: wrappedAdX, adCenterY: wrappedAdY };
+          if (isInDirection && distance < bestDistance) {
+            bestDistance = distance;
+            bestAd = { 
+              adCenterX: wrappedAdX, 
+              adCenterY: wrappedAdY,
+              adIndex,
+              distance,
+              isInDirection: true
+            };
+            console.log(`Found ad in direction at (${wrappedAdX}, ${wrappedAdY}), distance: ${distance}`);
           }
         }
       }
     });
 
-    // Choose the best ad based on priority
-    let targetAd = null;
-    if (nearestAdInDirection) {
-      targetAd = nearestAdInDirection;
-    } else if (nearestAdOpposite) {
-      targetAd = nearestAdOpposite;
-    } else if (nearestAdTopBottom) {
-      targetAd = nearestAdTopBottom;
+    // Second pass: if no ads found in the specified direction, find the nearest ad overall
+    if (!bestAd) {
+      console.log('No ads found in specified direction, looking for nearest ad overall...');
+      bestDistance = Infinity;
+      
+      activeAds.forEach((ad, adIndex) => {
+        if (ad.positions.length === 0) return;
+
+        // Calculate ad center
+        const minX = Math.min(...ad.positions.map((pos: any) => pos.x));
+        const maxX = Math.max(...ad.positions.map((pos: any) => pos.x));
+        const minY = Math.min(...ad.positions.map((pos: any) => pos.y));
+        const maxY = Math.max(...ad.positions.map((pos: any) => pos.y));
+        
+        const adCenterX = (minX + maxX) / 2;
+        const adCenterY = (minY + maxY) / 2;
+
+        // Check all possible wrapped positions (including wrapping)
+        const offsets = [-GRID_SIZE, 0, GRID_SIZE];
+        
+        for (let offsetY of offsets) {
+          for (let offsetX of offsets) {
+            const wrappedAdX = adCenterX + offsetX;
+            const wrappedAdY = adCenterY + offsetY;
+            
+            // Calculate distance to this wrapped position
+            const dx = wrappedAdX - currentCenterX;
+            const dy = wrappedAdY - currentCenterY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              bestAd = { 
+                adCenterX: wrappedAdX, 
+                adCenterY: wrappedAdY,
+                adIndex,
+                distance,
+                isInDirection: false
+              };
+              console.log(`Found nearest ad at (${wrappedAdX}, ${wrappedAdY}), distance: ${distance}`);
+            }
+          }
+        }
+      });
     }
 
-    if (targetAd) {
+    if (bestAd) {
+      console.log('Navigating to ad:', bestAd);
       // Move viewport to center on the target ad
-      const newViewportX = targetAd.adCenterX * pixelSize - screenWidth / 2;
-      const newViewportY = targetAd.adCenterY * pixelSize - screenHeight / 2;
+      const newViewportX = bestAd.adCenterX * pixelSize - screenWidth / 2;
+      const newViewportY = bestAd.adCenterY * pixelSize - screenHeight / 2;
       
       setViewport(prev => ({
         ...prev,
@@ -407,8 +518,38 @@ export default function Landing() {
         y: newViewportY
       }));
     } else {
-      alert('No ads found. Try refreshing the page.');
+      console.log('No suitable ad found');
+      alert('No ads found in that direction. Try refreshing the page.');
     }
+  };
+
+  const handleMiniMapClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const miniMapCanvas = miniMapRef.current;
+    if (!miniMapCanvas) return;
+    
+    const rect = miniMapCanvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    
+    const miniMapSize = 200;
+    const GRID_SIZE = 5000;
+    const pixelSize = Math.max(1, Math.floor(viewport.zoom * 2));
+    const screenWidth = sizeRef.current.width || window.innerWidth;
+    const screenHeight = sizeRef.current.height || window.innerHeight;
+    
+    // Convert mini map click to world coordinates
+    const worldX = (clickX / miniMapSize) * GRID_SIZE;
+    const worldY = (clickY / miniMapSize) * GRID_SIZE;
+    
+    // Center viewport on clicked position
+    const newViewportX = worldX * pixelSize - screenWidth / 2;
+    const newViewportY = worldY * pixelSize - screenHeight / 2;
+    
+    setViewport(prev => ({
+      ...prev,
+      x: newViewportX,
+      y: newViewportY
+    }));
   };
 
   return (
@@ -445,6 +586,20 @@ export default function Landing() {
           <span className="neon-heading text-sm align-middle">
             {Math.floor(secondsLeft / 60)}:{(secondsLeft % 60).toString().padStart(2, '0')}
           </span>
+        </div>
+      </div>
+
+      {/* Mini Map */}
+      <div className="absolute bottom-4 right-4 z-50 pointer-events-none">
+        <div className="bg-black/90 border-2 border-gray-500 rounded-lg p-3 pointer-events-auto shadow-2xl">
+          <div className="text-sm text-white mb-2 text-center font-semibold">Position Map</div>
+          <canvas
+            ref={miniMapRef}
+            onClick={handleMiniMapClick}
+            className="cursor-pointer border-2 border-gray-400 rounded bg-gray-900"
+            style={{ width: '200px', height: '200px' }}
+            title="Click to navigate to any position on the grid"
+          />
         </div>
       </div>
 
