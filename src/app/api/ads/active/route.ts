@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Force dynamic rendering - API routes are always dynamic
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     // Get current time in HH:MM format
