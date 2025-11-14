@@ -6,6 +6,15 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // Validate database connection
+    if (!process.env.DATABASE_URL) {
+      console.error('DATABASE_URL is not set');
+      return NextResponse.json(
+        { error: 'Database configuration missing' },
+        { status: 500 }
+      );
+    }
+    
     // Get current time in HH:MM format
     const now = new Date();
     const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
@@ -52,10 +61,26 @@ export async function GET() {
 
     return NextResponse.json({ ads: filteredAds });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching active ads:', error);
+    // Return more detailed error for debugging
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? error?.message || 'Internal server error'
+      : 'Internal server error';
+    
+    // Check for common database connection errors
+    if (error?.code === 'P1001' || error?.message?.includes('Can\'t reach database')) {
+      return NextResponse.json(
+        { error: 'Database connection failed. Please check DATABASE_URL environment variable.' },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      },
       { status: 500 }
     );
   }
