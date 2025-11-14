@@ -92,7 +92,7 @@ function EditAdModal({ ad, onSave, onClose }: { ad: any; onSave: (data: any) => 
             <Button type="submit" variant="pixel-green" className="flex-1">
               Save Changes
             </Button>
-            <Button type="button" variant="red" onClick={onClose} className="flex-1">
+            <Button type="button" variant="default" onClick={onClose} className="flex-1">
               Cancel
             </Button>
           </div>
@@ -535,14 +535,14 @@ export default function AdvertiserDashboard() {
                     <div className="flex gap-2">
                       <Button 
                         variant="green" 
-                        size="sm"
+                        className="text-xs"
                         onClick={() => handleEditAd(ad)}
                       >
                         Edit
                       </Button>
                       <Button 
-                        variant="red" 
-                        size="sm"
+                        variant="default" 
+                        className="text-xs"
                         onClick={() => handleDeleteAd(ad.id)}
                       >
                         Delete
