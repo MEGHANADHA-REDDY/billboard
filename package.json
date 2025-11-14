@@ -8,7 +8,8 @@
     "start": "next start",
     "postinstall": "prisma generate",
     "migrate": "prisma migrate deploy",
-    "migrate:dev": "prisma migrate dev"
+    "migrate:dev": "prisma migrate dev",
+    "fix-columns": "node scripts/fix-missing-columns.js"
   },
   "dependencies": {
     "@fontsource/press-start-2p": "^5.2.7",
