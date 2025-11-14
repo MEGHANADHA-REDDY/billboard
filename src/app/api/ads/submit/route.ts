@@ -25,6 +25,11 @@ export async function POST(request: NextRequest) {
 
     // Validate Cloudinary configuration
     if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.error('Cloudinary configuration missing:', {
+        hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
+        hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+        hasApiSecret: !!process.env.CLOUDINARY_API_SECRET,
+      });
       return NextResponse.json(
         { error: 'Cloudinary is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.' },
         { status: 500 }
@@ -32,13 +37,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload file to Cloudinary
+    console.log('Starting file upload to Cloudinary...', {
+      fileName: file.name,
+      fileSize: file.size,
+      mediaType,
+    });
+    
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const uploadResult = await uploadToCloudinary(
-      buffer,
-      'billboard-ads',
-      mediaType === 'video' ? 'video' : 'image'
-    );
+    
+    let uploadResult;
+    try {
+      uploadResult = await uploadToCloudinary(
+        buffer,
+        'billboard-ads',
+        mediaType === 'video' ? 'video' : 'image'
+      );
+      console.log('File uploaded successfully to Cloudinary:', uploadResult.secure_url);
+    } catch (uploadError: any) {
+      console.error('Cloudinary upload failed:', uploadError);
+      throw new Error(`Failed to upload file: ${uploadError.message || 'Unknown error'}`);
+    }
+    
     const mediaUrl = uploadResult.secure_url;
 
     // Create ad with positions
@@ -78,10 +98,18 @@ export async function POST(request: NextRequest) {
       }
     }, { status: 201 });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Ad submission error:', error);
+    // Return more detailed error message in development, generic in production
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? error?.message || 'Internal server error'
+      : 'Internal server error';
+    
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+      },
       { status: 500 }
     );
   }

@@ -33,21 +33,35 @@ export async function uploadToCloudinary(
       unique_filename: true,
     };
 
-    // If file is a buffer, convert to base64 data URI
+    // If file is a buffer, convert to base64 data URI for Cloudinary
     if (Buffer.isBuffer(file)) {
+      // Convert buffer to base64 and create data URI
       const base64 = file.toString('base64');
-      const dataUri = `data:application/octet-stream;base64,${base64}`;
+      // Determine MIME type from resource type
+      const mimeType = resourceType === 'video' ? 'video/mp4' : 'image/jpeg';
+      const dataUri = `data:${mimeType};base64,${base64}`;
+      
       cloudinary.uploader.upload(dataUri, uploadOptions, (error, result) => {
-        if (error) reject(error);
-        else if (result) resolve({ secure_url: result.secure_url!, public_id: result.public_id! });
-        else reject(new Error('Upload failed: No result returned'));
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          reject(new Error(`Cloudinary upload failed: ${error.message || 'Unknown error'}`));
+        } else if (result) {
+          resolve({ secure_url: result.secure_url!, public_id: result.public_id! });
+        } else {
+          reject(new Error('Upload failed: No result returned'));
+        }
       });
     } else {
       // If it's already a string (base64 or data URI)
       cloudinary.uploader.upload(file, uploadOptions, (error, result) => {
-        if (error) reject(error);
-        else if (result) resolve({ secure_url: result.secure_url!, public_id: result.public_id! });
-        else reject(new Error('Upload failed: No result returned'));
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          reject(new Error(`Cloudinary upload failed: ${error.message || 'Unknown error'}`));
+        } else if (result) {
+          resolve({ secure_url: result.secure_url!, public_id: result.public_id! });
+        } else {
+          reject(new Error('Upload failed: No result returned'));
+        }
       });
     }
   });
