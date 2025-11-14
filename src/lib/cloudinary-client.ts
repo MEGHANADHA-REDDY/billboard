@@ -30,12 +30,27 @@ export async function uploadToCloudinaryDirect(
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   
   if (!cloudName) {
-    throw new Error('Cloudinary cloud name is not configured. Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME environment variable.');
+    console.error('Cloudinary configuration check:', {
+      cloudName: cloudName || 'NOT SET',
+      uploadPreset,
+      hasEnvVar: typeof process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME !== 'undefined',
+    });
+    throw new Error('Cloudinary cloud name is not configured. Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME environment variable in Vercel and redeploy.');
   }
 
   if (!uploadPreset) {
     throw new Error('Upload preset is required. Please create an unsigned upload preset in Cloudinary dashboard.');
   }
+
+  // Log configuration for debugging (cloud name is safe to log, it's public)
+  console.log('Cloudinary upload config:', {
+    cloudName,
+    uploadPreset,
+    folder,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: file.type,
+  });
 
   // Create FormData for Cloudinary upload
   const formData = new FormData();
@@ -89,18 +104,29 @@ export async function uploadToCloudinaryDirect(
           const error = JSON.parse(xhr.responseText);
           let errorMessage = error.error?.message || `Upload failed with status ${xhr.status}`;
           
+          // Log full error for debugging
+          console.error('Cloudinary upload error:', {
+            status: xhr.status,
+            error: error.error,
+            fullResponse: xhr.responseText,
+            cloudName,
+            uploadPreset,
+          });
+          
           // Provide helpful error messages for common issues
           if (errorMessage.includes('Unknown API key') || errorMessage.includes('Invalid API key')) {
-            errorMessage = 'Upload preset is set to "Signed" but should be "Unsigned". Please go to Cloudinary Dashboard → Settings → Upload Presets and change the preset to "Unsigned" mode.';
+            // Even if preset is unsigned, this can happen if cloud name is wrong
+            errorMessage = `Cloudinary error: "${errorMessage}". This usually means:\n1. Your cloud name (${cloudName}) is incorrect - check NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME\n2. Or the preset "${uploadPreset}" doesn't exist or is misspelled\n3. Make sure you've redeployed after setting environment variables`;
           } else if (errorMessage.includes('Invalid upload preset')) {
-            errorMessage = `Upload preset "${uploadPreset}" not found. Please check that the preset name is correct in Cloudinary Dashboard.`;
-          } else if (errorMessage.includes('Invalid cloud name')) {
-            errorMessage = 'Invalid Cloudinary cloud name. Please check NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME environment variable.';
+            errorMessage = `Upload preset "${uploadPreset}" not found. Please check that:\n1. The preset name matches exactly (case-sensitive)\n2. The preset exists in Cloudinary Dashboard\n3. NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET is set correctly`;
+          } else if (errorMessage.includes('Invalid cloud name') || errorMessage.includes('not found')) {
+            errorMessage = `Invalid Cloudinary cloud name "${cloudName}". Please:\n1. Check NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME in Vercel\n2. Make sure it matches your Cloudinary dashboard cloud name exactly\n3. Redeploy your application`;
           }
           
           reject(new Error(errorMessage));
         } catch {
-          reject(new Error(`Upload failed with status ${xhr.status}. Check browser console for details.`));
+          console.error('Failed to parse error response:', xhr.responseText);
+          reject(new Error(`Upload failed with status ${xhr.status}. Response: ${xhr.responseText.substring(0, 200)}`));
         }
       }
     });
