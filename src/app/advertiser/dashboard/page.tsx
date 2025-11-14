@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/pixelact-ui/button';
 import { Input } from '@/components/ui/pixelact-ui/input';
 import Card from '@/components/ui/pixelact-ui/card';
 import GridSelector from '@/components/GridSelector';
+import { uploadToCloudinaryDirect } from '@/lib/cloudinary-client';
 
 type MediaType = 'image' | 'video';
 
@@ -114,6 +115,7 @@ export default function AdvertiserDashboard() {
   const [about, setAbout] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedCells, setSelectedCells] = useState<Array<{ x: number; y: number }>>([]);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [activeAds, setActiveAds] = useState<any[]>([]);
@@ -303,21 +305,43 @@ export default function AdvertiserDashboard() {
     }
     
     setSubmitting(true);
+    setUploadProgress(0);
     
     try {
-      const formData = new FormData();
-      formData.append('userId', user.id);
-      formData.append('about', about);
-      formData.append('ctaUrl', ctaUrl);
-      formData.append('mediaType', mediaType);
-      formData.append('hideFromTime', hideFromTime);
-      formData.append('hideToTime', hideToTime);
-      formData.append('positions', JSON.stringify(selectedCells));
-      formData.append('file', file);
+      // Step 1: Upload file directly to Cloudinary (bypasses Vercel's 4.5MB limit)
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'billboard-ads';
+      
+      let cloudinaryUrl: string;
+      try {
+        const uploadResult = await uploadToCloudinaryDirect(
+          file,
+          uploadPreset,
+          'billboard-ads',
+          (progress) => {
+            setUploadProgress(progress);
+          }
+        );
+        cloudinaryUrl = uploadResult.secure_url;
+      } catch (uploadError: any) {
+        throw new Error(`Failed to upload file to Cloudinary: ${uploadError.message || 'Unknown error'}`);
+      }
 
+      // Step 2: Send Cloudinary URL to our API (no file data, just the URL)
       const response = await fetch('/api/ads/submit', {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          about,
+          ctaUrl,
+          mediaType,
+          hideFromTime,
+          hideToTime,
+          positions: selectedCells,
+          mediaUrl: cloudinaryUrl, // Send Cloudinary URL instead of file
+        }),
       });
 
       if (!response.ok) {
@@ -373,9 +397,11 @@ export default function AdvertiserDashboard() {
       setPreviewUrl(null);
       setAbout('');
       setCtaUrl('');
+      setUploadProgress(0);
       
     } catch (error: any) {
       alert(`Error: ${error.message}`);
+      setUploadProgress(0);
     } finally {
       setSubmitting(false);
     }
@@ -516,7 +542,21 @@ export default function AdvertiserDashboard() {
             <div>
               <label className="block text-gray-300 text-xs mb-2" htmlFor="file">Upload {mediaType === 'image' ? 'image' : 'video'}</label>
               <input id="file" type="file" accept={mediaType==='image' ? 'image/*' : 'video/*'} onChange={handleFile} className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-white hover:file:bg-gray-600" />
-              <p className="text-gray-500 text-xs mt-1">Max 25MB. Supported formats vary by type.</p>
+              <p className="text-gray-500 text-xs mt-1">Max 100MB for videos, 20MB for images (Cloudinary limits). Uploads go directly to Cloudinary, bypassing Vercel limits.</p>
+              {submitting && uploadProgress > 0 && (
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-gray-400 mb-1">
+                    <span>Uploading to Cloudinary...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="bg-gray-900/60 border border-gray-700 rounded-lg aspect-video flex items-center justify-center overflow-hidden">
               {previewUrl ? (

@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { uploadToCloudinary } from '@/lib/cloudinary';
 
 // Force dynamic rendering - API routes are always dynamic
 export const dynamic = 'force-dynamic';
 
-// Configure max duration and body size for large file uploads
-export const maxDuration = 30; // 30 seconds for video uploads
+// Configure max duration for API calls
+export const maxDuration = 30;
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
@@ -20,71 +19,36 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const formData = await request.formData();
+    // Parse JSON body (file is already uploaded to Cloudinary by frontend)
+    const body = await request.json();
     
-    const userId = formData.get('userId') as string;
-    const title = formData.get('title') as string;
-    const about = formData.get('about') as string;
-    const ctaUrl = formData.get('ctaUrl') as string;
-    const mediaType = formData.get('mediaType') as string;
-    const hideFromTime = formData.get('hideFromTime') as string;
-    const hideToTime = formData.get('hideToTime') as string;
-    const positions = JSON.parse(formData.get('positions') as string);
-    const file = formData.get('file') as File;
-
-    if (!userId || !file || !positions || positions.length === 0) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size (25MB limit)
-    const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB in bytes
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: `File size exceeds the maximum limit of 25MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB.` },
-        { status: 400 }
-      );
-    }
-
-    // Validate Cloudinary configuration
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      console.error('Cloudinary configuration missing:', {
-        hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
-        hasApiKey: !!process.env.CLOUDINARY_API_KEY,
-        hasApiSecret: !!process.env.CLOUDINARY_API_SECRET,
-      });
-      return NextResponse.json(
-        { error: 'Cloudinary is not configured. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.' },
-        { status: 500 }
-      );
-    }
-
-    // Upload file to Cloudinary
-    console.log('Starting file upload to Cloudinary...', {
-      fileName: file.name,
-      fileSize: file.size,
+    const {
+      userId,
+      title,
+      about,
+      ctaUrl,
       mediaType,
-    });
-    
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    
-    let uploadResult;
-    try {
-      uploadResult = await uploadToCloudinary(
-        buffer,
-        'billboard-ads',
-        mediaType === 'video' ? 'video' : 'image'
+      hideFromTime,
+      hideToTime,
+      positions,
+      mediaUrl, // Cloudinary URL from direct upload
+    } = body;
+
+    // Validate required fields
+    if (!userId || !mediaUrl || !positions || positions.length === 0) {
+      return NextResponse.json(
+        { error: 'Missing required fields: userId, mediaUrl, and positions are required' },
+        { status: 400 }
       );
-      console.log('File uploaded successfully to Cloudinary:', uploadResult.secure_url);
-    } catch (uploadError: any) {
-      console.error('Cloudinary upload failed:', uploadError);
-      throw new Error(`Failed to upload file: ${uploadError.message || 'Unknown error'}`);
     }
-    
-    const mediaUrl = uploadResult.secure_url;
+
+    // Validate that mediaUrl is from Cloudinary
+    if (!mediaUrl.includes('cloudinary.com')) {
+      return NextResponse.json(
+        { error: 'Invalid media URL. Must be a Cloudinary URL.' },
+        { status: 400 }
+      );
+    }
 
     // Create ad with positions
     const ad = await prisma.ad.create({
