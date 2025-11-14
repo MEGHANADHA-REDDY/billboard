@@ -321,8 +321,43 @@ export default function AdvertiserDashboard() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to submit ad');
+        // Try to parse as JSON, but handle non-JSON responses (like "Request Entity Too Large")
+        let errorMessage = 'Failed to submit ad';
+        const contentType = response.headers.get('content-type');
+        
+        // Handle 413 (Request Entity Too Large) specifically
+        if (response.status === 413) {
+          errorMessage = 'File is too large. Maximum file size is 25MB. If you\'re on Vercel Hobby/Pro plan, the limit is 4.5MB.';
+        } else {
+          // Try to get error message from response
+          try {
+            if (contentType && contentType.includes('application/json')) {
+              const error = await response.json();
+              errorMessage = error.error || errorMessage;
+            } else {
+              // Response is not JSON (might be HTML or plain text)
+              const text = await response.text();
+              // Check for common error messages
+              if (text.includes('Request Entity Too Large') || text.includes('Payload Too Large')) {
+                errorMessage = 'File is too large. Maximum file size is 25MB. If you\'re on Vercel Hobby/Pro plan, the limit is 4.5MB.';
+              } else if (text.trim()) {
+                // Use the text if it's not empty
+                errorMessage = text.length > 200 ? text.substring(0, 200) + '...' : text;
+              } else {
+                errorMessage = `Server error (${response.status})`;
+              }
+            }
+          } catch (parseError) {
+            // If we can't parse the response, use status-based message
+            if (response.status === 413) {
+              errorMessage = 'File is too large. Maximum file size is 25MB. If you\'re on Vercel Hobby/Pro plan, the limit is 4.5MB.';
+            } else {
+              errorMessage = `Server error (${response.status})`;
+            }
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
