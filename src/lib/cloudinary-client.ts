@@ -87,9 +87,20 @@ export async function uploadToCloudinaryDirect(
       } else {
         try {
           const error = JSON.parse(xhr.responseText);
-          reject(new Error(error.error?.message || `Upload failed with status ${xhr.status}`));
+          let errorMessage = error.error?.message || `Upload failed with status ${xhr.status}`;
+          
+          // Provide helpful error messages for common issues
+          if (errorMessage.includes('Unknown API key') || errorMessage.includes('Invalid API key')) {
+            errorMessage = 'Upload preset is set to "Signed" but should be "Unsigned". Please go to Cloudinary Dashboard → Settings → Upload Presets and change the preset to "Unsigned" mode.';
+          } else if (errorMessage.includes('Invalid upload preset')) {
+            errorMessage = `Upload preset "${uploadPreset}" not found. Please check that the preset name is correct in Cloudinary Dashboard.`;
+          } else if (errorMessage.includes('Invalid cloud name')) {
+            errorMessage = 'Invalid Cloudinary cloud name. Please check NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME environment variable.';
+          }
+          
+          reject(new Error(errorMessage));
         } catch {
-          reject(new Error(`Upload failed with status ${xhr.status}`));
+          reject(new Error(`Upload failed with status ${xhr.status}. Check browser console for details.`));
         }
       }
     });

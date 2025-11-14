@@ -15,13 +15,15 @@ Files are now uploaded **directly from the browser to Cloudinary**, bypassing Ve
 3. Click **Add upload preset**
 4. Configure the preset:
    - **Preset name:** `billboard-ads` (or any name you prefer)
-   - **Signing mode:** Select **Unsigned** (this is important!)
+   - **⚠️ Signing mode:** Select **Unsigned** (CRITICAL - if set to "Signed", you'll get "Unknown API key" error!)
    - **Folder:** `billboard-ads` (optional, but recommended)
    - **Resource type:** `Auto` (to support both images and videos)
    - **Use filename:** ✅ Enabled
    - **Unique filename:** ✅ Enabled
    - **Overwrite:** ❌ Disabled (recommended)
 5. Click **Save**
+
+**⚠️ IMPORTANT:** If you see "Unknown API key" error, your preset is set to "Signed" instead of "Unsigned". See `FIX_CLOUDINARY_API_KEY_ERROR.md` for detailed instructions.
 
 ### 2. Set Environment Variables
 
@@ -79,6 +81,12 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=billboard-ads
 
 ## Troubleshooting
 
+### Error: "Unknown API key" or "Invalid API key"
+- **This means your upload preset is set to "Signed" instead of "Unsigned"**
+- Go to Cloudinary Dashboard → Settings → Upload Presets
+- Edit your preset and change **Signing mode** to **"Unsigned"**
+- See `FIX_CLOUDINARY_API_KEY_ERROR.md` for detailed instructions
+
 ### Error: "Upload preset is required"
 - Make sure you created an **unsigned** upload preset in Cloudinary
 - Set `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` environment variable
@@ -87,6 +95,11 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=billboard-ads
 ### Error: "Cloudinary cloud name is not configured"
 - Set `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` in Vercel environment variables
 - Make sure to redeploy after adding the variable
+
+### Error: "Invalid upload preset"
+- Check that the preset name in Cloudinary matches `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET`
+- Preset names are case-sensitive
+- Make sure the preset exists and is set to **Unsigned**
 
 ### Error: "Invalid media URL. Must be a Cloudinary URL"
 - This means the file didn't upload to Cloudinary successfully
@@ -97,6 +110,7 @@ NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=billboard-ads
 - Check browser console for errors
 - Verify Cloudinary credentials are correct
 - Make sure the upload preset name matches your environment variable
+- Verify the preset is set to **Unsigned** mode
 
 ## Security Notes
 
