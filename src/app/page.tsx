@@ -45,6 +45,36 @@ export default function Landing() {
     return () => window.removeEventListener('resize', resize);
   }, []);
 
+  // Add non-passive wheel event listener to prevent browser zoom
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Prevent browser zoom
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Create a synthetic React event
+      const reactEvent = {
+        ...e,
+        currentTarget: canvas,
+        target: canvas,
+        nativeEvent: e,
+      } as unknown as React.WheelEvent<HTMLCanvasElement>;
+      
+      onWheel(reactEvent);
+    };
+
+    // Add non-passive event listener (third parameter: { passive: false })
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport]);
+
   useEffect(() => {
     draw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,8 +325,15 @@ export default function Landing() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
+    // Prevent browser zoom - must be called first
     e.preventDefault();
     e.stopPropagation();
+    
+    // Also prevent default on the native event
+    if (e.nativeEvent) {
+      e.nativeEvent.preventDefault();
+      e.nativeEvent.stopPropagation();
+    }
 
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.1, Math.min(50, viewport.zoom * scaleFactor));
@@ -554,7 +591,19 @@ export default function Landing() {
   };
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden">
+    <div 
+      className="relative w-full h-screen bg-black overflow-hidden"
+      style={{ 
+        touchAction: 'none',
+        overscrollBehavior: 'none',
+      }}
+      onWheel={(e) => {
+        // Prevent browser zoom on the container
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+        }
+      }}
+    >
       {/* Top-centered header */}
       <div className="absolute inset-x-0 top-4 z-40 pointer-events-none">
         <div className="mx-auto w-full max-w-4xl flex flex-col items-center gap-3 text-center pointer-events-auto">
@@ -570,9 +619,11 @@ export default function Landing() {
         className={`absolute inset-0 block ${hoveredAd ? 'cursor-pointer' : 'cursor-move'}`}
         aria-hidden="true"
         onMouseDown={onMouseDown}
-        onWheel={onWheel}
         onClick={onClick}
-        style={{ touchAction: 'none' }}
+        style={{ 
+          touchAction: 'none',
+          overscrollBehavior: 'none',
+        }}
       />
       {/* Clock (top-left) */}
       <div className="absolute top-4 left-4 z-40 pointer-events-none text-left">

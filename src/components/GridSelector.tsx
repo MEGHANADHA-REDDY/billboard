@@ -39,6 +39,36 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
     resize();
   }, []);
 
+  // Add non-passive wheel event listener to prevent browser zoom
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheelNative = (e: WheelEvent) => {
+      // Prevent browser zoom
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Create a synthetic React event
+      const reactEvent = {
+        ...e,
+        currentTarget: canvas,
+        target: canvas,
+        nativeEvent: e,
+      } as unknown as React.WheelEvent<HTMLCanvasElement>;
+      
+      handleWheel(reactEvent);
+    };
+
+    // Add non-passive event listener (third parameter: { passive: false })
+    canvas.addEventListener('wheel', handleWheelNative, { passive: false });
+    
+    return () => {
+      canvas.removeEventListener('wheel', handleWheelNative);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport]);
+
   useEffect(() => {
     draw();
   }, [viewport, selectedCells, activeAds]);
@@ -237,8 +267,16 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
 
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    // Prevent browser zoom - must be called first
     e.preventDefault();
     e.stopPropagation();
+    
+    // Also prevent default on the native event
+    if (e.nativeEvent) {
+      e.nativeEvent.preventDefault();
+      e.nativeEvent.stopPropagation();
+    }
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -277,7 +315,6 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
           className={`block ${isDraggingRef.current ? 'cursor-grabbing' : 'cursor-grab'}`}
           onMouseDown={handleMouseDown}
           onClick={handleCanvasClick}
-          onWheel={handleWheel}
           style={{ 
             width: '600px', 
             height: '400px', 

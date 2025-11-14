@@ -5,6 +5,10 @@ import { uploadToCloudinary } from '@/lib/cloudinary';
 // Force dynamic rendering - API routes are always dynamic
 export const dynamic = 'force-dynamic';
 
+// Configure max duration and body size for large file uploads
+export const maxDuration = 30; // 30 seconds for video uploads
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     // Validate database connection
@@ -31,6 +35,15 @@ export async function POST(request: NextRequest) {
     if (!userId || !file || !positions || positions.length === 0) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (25MB limit)
+    const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB in bytes
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `File size exceeds the maximum limit of 25MB. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB.` },
         { status: 400 }
       );
     }
