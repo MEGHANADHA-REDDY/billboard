@@ -25,8 +25,17 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      const width = 600; // Larger width for dashboard
-      const height = 400; // Larger height for dashboard
+      // Get container dimensions or use defaults
+      const container = canvas.parentElement;
+      if (!container) return;
+      
+      const containerWidth = container.clientWidth || 600;
+      const containerHeight = container.clientHeight || 400;
+      
+      // Use full container dimensions
+      const width = containerWidth;
+      const height = containerHeight || Math.floor(containerWidth * 0.666); // 3:2 aspect ratio
+      
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       canvas.width = Math.floor(width * dpr);
@@ -36,7 +45,26 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
       draw();
     };
 
+    // Initial resize
     resize();
+    
+    // Use ResizeObserver to watch container size changes
+    const resizeObserver = new ResizeObserver(() => {
+      resize();
+    });
+    
+    const container = canvas.parentElement;
+    if (container) {
+      resizeObserver.observe(container);
+    }
+    
+    // Also listen to window resize as fallback
+    window.addEventListener('resize', resize);
+    
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', resize);
+    };
   }, []);
 
   // Add non-passive wheel event listener to prevent browser zoom
@@ -48,16 +76,26 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
       // Prevent browser zoom
       e.preventDefault();
       e.stopPropagation();
-      
-      // Create a synthetic React event
-      const reactEvent = {
-        ...e,
-        currentTarget: canvas,
-        target: canvas,
-        nativeEvent: e,
-      } as unknown as React.WheelEvent<HTMLCanvasElement>;
-      
-      handleWheel(reactEvent);
+
+      // Handle zoom directly here instead of calling handleWheel
+      const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newZoom = Math.max(0.1, Math.min(50, viewport.zoom * scaleFactor));
+
+      // Zoom to mouse position
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const pixelSize = Math.max(1, Math.floor(viewport.zoom * 2));
+      const postZoomPixelSize = Math.max(1, Math.floor(newZoom * 2));
+
+      const worldXBefore = (viewport.x + mouseX) / pixelSize;
+      const worldYBefore = (viewport.y + mouseY) / pixelSize;
+
+      const newViewportX = worldXBefore * postZoomPixelSize - mouseX;
+      const newViewportY = worldYBefore * postZoomPixelSize - mouseY;
+
+      setViewport(v => ({ ...v, zoom: newZoom, x: newViewportX, y: newViewportY }));
     };
 
     // Add non-passive event listener (third parameter: { passive: false })
@@ -266,39 +304,6 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
   };
 
 
-  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    // Prevent browser zoom - must be called first
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Also prevent default on the native event
-    if (e.nativeEvent) {
-      e.nativeEvent.preventDefault();
-      e.nativeEvent.stopPropagation();
-    }
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(50, viewport.zoom * scaleFactor));
-
-    // Zoom to mouse position
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const preZoomPixelSize = Math.max(1, Math.floor(viewport.zoom * 2));
-    const postZoomPixelSize = Math.max(1, Math.floor(newZoom * 2));
-
-    const worldXBefore = (viewport.x + mouseX) / preZoomPixelSize;
-    const worldYBefore = (viewport.y + mouseY) / preZoomPixelSize;
-
-    const newViewportX = worldXBefore * postZoomPixelSize - mouseX;
-    const newViewportY = worldYBefore * postZoomPixelSize - mouseY;
-
-    setViewport(v => ({ ...v, zoom: newZoom, x: newViewportX, y: newViewportY }));
-  };
 
   return (
     <div className="space-y-4">
@@ -309,17 +314,16 @@ export default function GridSelector({ selectedCells, onCellSelect, maxCells = I
         </span>
       </div>
       
-      <div className="border border-gray-700 rounded-lg overflow-hidden bg-black relative" style={{ overscrollBehavior: 'none' }}>
+      <div className="border border-gray-700 rounded-lg overflow-hidden bg-black relative w-full" style={{ overscrollBehavior: 'none', aspectRatio: '3/2', minHeight: '400px' }}>
         <canvas
           ref={canvasRef}
-          className={`block ${isDraggingRef.current ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`block w-full h-full ${isDraggingRef.current ? 'cursor-grabbing' : 'cursor-grab'}`}
           onMouseDown={handleMouseDown}
           onClick={handleCanvasClick}
           style={{ 
-            width: '600px', 
-            height: '400px', 
             touchAction: 'none',
-            overscrollBehavior: 'none'
+            overscrollBehavior: 'none',
+            display: 'block'
           }}
         />
         

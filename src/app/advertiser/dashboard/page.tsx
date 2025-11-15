@@ -123,26 +123,53 @@ export default function AdvertiserDashboard() {
   const [editingAd, setEditingAd] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // Helper function to calculate best rectangle dimensions for a given pixel count
+  // Ensures width × height exactly equals count (complete rectangle, no gaps)
+  const calculateRectangleDimensions = (count: number): { width: number; height: number } => {
+    if (count <= 0) return { width: 0, height: 0 };
+    
+    // Find all factor pairs where width × height = count exactly
+    let bestWidth = 1;
+    let bestHeight = count;
+    let bestDifference = Math.abs(1 - count);
+    
+    // Check all possible widths from 1 to sqrt(count)
+    for (let w = 1; w <= Math.sqrt(count); w++) {
+      if (count % w === 0) {
+        // w divides count evenly, so we have a complete rectangle
+        const h = count / w;
+        const difference = Math.abs(w - h);
+        
+        // Choose the pair that's most square-like (smallest difference)
+        if (difference < bestDifference) {
+          bestWidth = w;
+          bestHeight = h;
+          bestDifference = difference;
+        }
+      }
+    }
+    
+    return { width: bestWidth, height: bestHeight };
+  };
+
   // Auto-generate selected cells based on pixel count and click position
+  // Creates a rectangle (width x height) that's as close to square as possible
   useEffect(() => {
     if (clickPosition && pixelCount > 0) {
       const cells: Array<{ x: number; y: number }> = [];
+      const { width, height } = calculateRectangleDimensions(pixelCount);
       
-      // Calculate how many cells to place horizontally and vertically
-      const sqrt = Math.sqrt(pixelCount);
-      const width = Math.ceil(sqrt);
-      const height = Math.ceil(pixelCount / width);
+      console.log(`Creating ${pixelCount} pixel ad: ${width}x${height} rectangle starting at (${clickPosition.x}, ${clickPosition.y})`);
       
-      console.log(`Creating ${pixelCount} pixel ad: ${width}x${height} grid starting at (${clickPosition.x}, ${clickPosition.y})`);
-      
-      // Start from click position and place cells in a rectangular pattern
-      for (let i = 0; i < pixelCount; i++) {
-        const row = Math.floor(i / width);
-        const col = i % width;
-        cells.push({
-          x: clickPosition.x + col,
-          y: clickPosition.y + row
-        });
+      // Create a complete rectangle (width x height)
+      // Since width × height = pixelCount exactly, we fill all cells
+      for (let row = 0; row < height; row++) {
+        for (let col = 0; col < width; col++) {
+          cells.push({
+            x: clickPosition.x + col,
+            y: clickPosition.y + row
+          });
+        }
       }
       
       // Log the bounding box
@@ -289,8 +316,8 @@ export default function AdvertiserDashboard() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (pixelCount > 100) {
-      alert('Maximum pixel limit is 100. Please reduce your pixel count.');
+    if (pixelCount <= 0 || pixelCount > 100) {
+      alert('Please enter a valid number of pixels between 1 and 100.');
       return;
     }
     
@@ -428,6 +455,32 @@ export default function AdvertiserDashboard() {
           <div className="space-y-6">
             <h2 className="text-gray-300 text-lg">Grid Selection</h2>
             
+            <div className="bg-gray-900/60 border border-gray-700 rounded p-4">
+              <p className="text-gray-300 text-sm mb-2">
+                <strong>Instructions:</strong> Enter the number of pixels you want above, then click on the grid below to select your ad position. 
+                The system will automatically select {pixelCount > 0 ? (() => {
+                  const { width, height } = calculateRectangleDimensions(pixelCount);
+                  return `${width}×${height}`;
+                })() : '0'} adjacent grid cells starting from your click location.
+              </p>
+              <p className="text-gray-400 text-xs">
+                Drag to pan • Scroll to zoom • Click to place your ad
+              </p>
+              {clickPosition && pixelCount > 0 && (() => {
+                const { width, height } = calculateRectangleDimensions(pixelCount);
+                return (
+                  <div className="mt-3 p-2 bg-blue-900/30 border border-blue-600 rounded">
+                    <p className="text-blue-300 text-xs">
+                      <strong>Preview:</strong> Your {pixelCount}-pixel ad will be placed starting at grid position ({clickPosition.x}, {clickPosition.y})
+                    </p>
+                    <p className="text-blue-400 text-xs mt-1">
+                      Ad dimensions: {width}×{height} cells (rectangle)
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Pixel Count Input */}
             <div className="max-w-xs">
               <label className="block text-gray-300 text-xs mb-2" htmlFor="pixelCount">Number of pixels</label>
@@ -437,29 +490,16 @@ export default function AdvertiserDashboard() {
                 min={0}
                 max={100}
                 value={pixelCount}
-                onChange={(e) => setPixelCount(parseInt(e.target.value || '0', 10))}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value || '0', 10);
+                  if (value >= 0 && value <= 100) {
+                    setPixelCount(value);
+                  } else if (value > 100) {
+                    alert('Maximum pixel limit is 100. Please enter a number between 1 and 100.');
+                  }
+                }}
               />
-              <p className="text-gray-500 text-xs mt-1">How many grid cells you want to occupy. (Max: 100 pixels)</p>
-            </div>
-
-            <div className="bg-gray-900/60 border border-gray-700 rounded p-4">
-              <p className="text-gray-300 text-sm mb-2">
-                <strong>Instructions:</strong> Enter the number of pixels you want above, then click on the grid below to select your ad position. 
-                The system will automatically select {pixelCount} adjacent grid cells starting from your click location.
-              </p>
-              <p className="text-gray-400 text-xs">
-                Drag to pan • Scroll to zoom • Click to place your ad
-              </p>
-              {clickPosition && pixelCount > 0 && (
-                <div className="mt-3 p-2 bg-blue-900/30 border border-blue-600 rounded">
-                  <p className="text-blue-300 text-xs">
-                    <strong>Preview:</strong> Your {pixelCount}-pixel ad will be placed starting at grid position ({clickPosition.x}, {clickPosition.y})
-                  </p>
-                  <p className="text-blue-400 text-xs mt-1">
-                    Ad dimensions: {Math.ceil(Math.sqrt(pixelCount))}x{Math.ceil(pixelCount / Math.ceil(Math.sqrt(pixelCount)))} cells
-                  </p>
-                </div>
-              )}
+              <p className="text-gray-500 text-xs mt-1">Enter any number from 1 to 100. Forms a rectangle (width × height).</p>
             </div>
             <GridSelector 
               selectedCells={selectedCells}
@@ -532,9 +572,6 @@ export default function AdvertiserDashboard() {
               />
             </div>
 
-            <Button type="submit" variant="pixel-green" disabled={submitting} className="w-full">
-              {submitting ? 'Submitting…' : 'Submit Ad'}
-            </Button>
             </div>
           </div>
 
@@ -542,7 +579,7 @@ export default function AdvertiserDashboard() {
             <div>
               <label className="block text-gray-300 text-xs mb-2" htmlFor="file">Upload {mediaType === 'image' ? 'image' : 'video'}</label>
               <input id="file" type="file" accept={mediaType==='image' ? 'image/*' : 'video/*'} onChange={handleFile} className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-white hover:file:bg-gray-600" />
-              <p className="text-gray-500 text-xs mt-1">Max 100MB for videos, 20MB for images (Cloudinary limits). Uploads go directly to Cloudinary, bypassing Vercel limits.</p>
+              <p className="text-gray-500 text-xs mt-1">Max size limit is 25MB</p>
               {submitting && uploadProgress > 0 && (
                 <div className="mt-2">
                   <div className="flex justify-between text-xs text-gray-400 mb-1">
@@ -582,6 +619,10 @@ export default function AdvertiserDashboard() {
                 </div>
               </div>
             </div>
+            
+            <Button type="submit" variant="pixel-green" disabled={submitting} className="w-full">
+              {submitting ? 'Submitting…' : 'Submit Ad'}
+            </Button>
           </div>
         </form>
 

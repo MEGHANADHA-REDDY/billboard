@@ -54,16 +54,26 @@ export default function Landing() {
       // Prevent browser zoom
       e.preventDefault();
       e.stopPropagation();
-      
-      // Create a synthetic React event
-      const reactEvent = {
-        ...e,
-        currentTarget: canvas,
-        target: canvas,
-        nativeEvent: e,
-      } as unknown as React.WheelEvent<HTMLCanvasElement>;
-      
-      onWheel(reactEvent);
+
+      // Handle zoom directly here instead of calling onWheel
+      const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newZoom = Math.max(0.1, Math.min(50, viewport.zoom * scaleFactor));
+
+      // Zoom to mouse position
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const pixelSize = Math.max(1, Math.floor(viewport.zoom * 2));
+      const postZoomPixelSize = Math.max(1, Math.floor(newZoom * 2));
+
+      const worldXBefore = (viewport.x + mouseX) / pixelSize;
+      const worldYBefore = (viewport.y + mouseY) / pixelSize;
+
+      const newViewportX = worldXBefore * postZoomPixelSize - mouseX;
+      const newViewportY = worldYBefore * postZoomPixelSize - mouseY;
+
+      setViewport(v => ({ ...v, zoom: newZoom, x: newViewportX, y: newViewportY }));
     };
 
     // Add non-passive event listener (third parameter: { passive: false })
@@ -321,39 +331,6 @@ export default function Landing() {
     }
   };
 
-  const onWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    // Prevent browser zoom - must be called first
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Also prevent default on the native event
-    if (e.nativeEvent) {
-      e.nativeEvent.preventDefault();
-      e.nativeEvent.stopPropagation();
-    }
-
-    const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(50, viewport.zoom * scaleFactor));
-
-    // Zoom to mouse position
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const preZoomPixelSize = Math.max(1, Math.floor(viewport.zoom * 2));
-    const postZoomPixelSize = Math.max(1, Math.floor(newZoom * 2));
-
-    const worldXBefore = (viewport.x + mouseX) / preZoomPixelSize;
-    const worldYBefore = (viewport.y + mouseY) / preZoomPixelSize;
-
-    const newViewportX = worldXBefore * postZoomPixelSize - mouseX;
-    const newViewportY = worldYBefore * postZoomPixelSize - mouseY;
-
-    setViewport(v => ({ ...v, zoom: newZoom, x: newViewportX, y: newViewportY }));
-  };
 
   // 10-minute countdown then redirect to ads page
   const [secondsLeft, setSecondsLeft] = useState<number>(600);
@@ -608,10 +585,14 @@ export default function Landing() {
       <div className="absolute inset-x-0 top-4 z-40 pointer-events-none">
         <div className="mx-auto w-full max-w-4xl flex flex-col items-center gap-3 text-center pointer-events-auto">
           <h1 className="neon-heading text-2xl md:text-3xl">THE QUARTER BILLBOARD</h1>
-          <div className="flex items-center justify-center gap-3">
-            <a href="/auth?role=advertiser&mode=login"><Button variant="green">Login</Button></a>
-            <a href="/auth?role=advertiser&mode=register"><Button variant="blue">Register</Button></a>
-          </div>
+          <a 
+            href="/auth?role=advertiser&mode=login"
+            className="inline-block"
+          >
+            <button className="px-4 py-2 text-sm font-medium text-white bg-green-500 hover:bg-green-400 rounded-md transition-all duration-200 shadow-sm hover:shadow-md">
+              Buy Now
+            </button>
+          </a>
         </div>
       </div>
       <canvas
@@ -634,7 +615,7 @@ export default function Landing() {
       {/* Countdown (top-right) */}
       <div className="absolute top-4 right-4 z-40 pointer-events-none text-right">
         <div className="bg-gray-900/70 border border-gray-700 rounded px-3 py-2 text-xs inline-block">
-          <span className="text-gray-300">Next rotation in </span>
+          <span className="text-gray-300">Refresh </span>
           <span className="neon-heading text-sm align-middle">
             {Math.floor(secondsLeft / 60)}:{(secondsLeft % 60).toString().padStart(2, '0')}
           </span>
@@ -657,11 +638,6 @@ export default function Landing() {
 
       {/* Ad Overlays */}
       <div className="absolute inset-0 pointer-events-none z-30">
-        {activeAds.length > 0 && (
-          <div className="absolute top-20 left-4 bg-black bg-opacity-50 text-white p-2 text-xs">
-            {activeAds.length} ads loaded
-          </div>
-        )}
         {activeAds.map((ad) => (
           <AdOverlay
             key={ad.id}
