@@ -583,8 +583,13 @@ export default function Landing() {
     >
       {/* Top-centered header */}
       <div className="absolute inset-x-0 top-4 z-40 pointer-events-none">
-        <div className="mx-auto w-full max-w-4xl flex flex-col items-center gap-3 text-center pointer-events-auto">
+        <div className="mx-auto w-full max-w-4xl flex flex-col items-center gap-3 text-center pointer-events-auto px-4">
           <h1 className="neon-heading text-2xl md:text-3xl">THE QUARTER BILLBOARD</h1>
+          <div className="rounded-full bg-black/70 border border-white/15 px-4 py-1.5 flex items-center gap-2 text-sm text-white shadow-[0_5px_20px_rgba(0,0,0,0.45)]">
+            <span className="line-through text-white/60">$2.00</span>
+            <span className="text-white/70 text-xs uppercase tracking-[0.25em]">now</span>
+            <span className="text-base font-semibold text-[#00fff7]">$1.50 per pixel</span>
+          </div>
           <a 
             href="/auth?role=advertiser&mode=login"
             className="inline-block"
