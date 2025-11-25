@@ -9,6 +9,7 @@ import GridSelector from '@/components/GridSelector';
 import { uploadToCloudinaryDirect } from '@/lib/cloudinary-client';
 
 type MediaType = 'image' | 'video';
+const PRICE_PER_PIXEL = 1.5;
 
 // Edit Ad Modal Component
 function EditAdModal({ ad, onSave, onClose }: { ad: any; onSave: (data: any) => void; onClose: () => void }) {
@@ -78,17 +79,6 @@ function EditAdModal({ ad, onSave, onClose }: { ad: any; onSave: (data: any) => 
             />
           </div>
 
-          <div>
-            <label className="flex items-center gap-2 text-gray-300 text-sm">
-              <input 
-                type="checkbox" 
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-              />
-              Active (ad is visible on the grid)
-            </label>
-          </div>
-
           <div className="flex gap-3 pt-4">
             <Button type="submit" variant="pixel-green" className="flex-1">
               Save Changes
@@ -122,6 +112,7 @@ export default function AdvertiserDashboard() {
   const [userAds, setUserAds] = useState<any[]>([]);
   const [editingAd, setEditingAd] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const totalCost = pixelCount * PRICE_PER_PIXEL;
 
   // Helper function to calculate best rectangle dimensions for a given pixel count
   // Ensures width × height exactly equals count (complete rectangle, no gaps)
@@ -331,6 +322,8 @@ export default function AdvertiserDashboard() {
       return;
     }
     
+    const amountDue = (pixelCount * PRICE_PER_PIXEL).toFixed(2);
+    
     setSubmitting(true);
     setUploadProgress(0);
     
@@ -412,7 +405,7 @@ export default function AdvertiserDashboard() {
       }
 
       const result = await response.json();
-      alert(`Ad submitted successfully! Your ad will be displayed on ${pixelCount} grid cells.`);
+      alert(`Ad submitted successfully! ${pixelCount} pixels = $${amountDue} USD. You'll receive a payment email within 24 hours—please complete payment to activate your ad, otherwise it will be removed.`);
       
       // Redirect to home page (grid)
       router.push('/');
@@ -500,6 +493,25 @@ export default function AdvertiserDashboard() {
                 }}
               />
               <p className="text-gray-500 text-xs mt-1">Enter any number from 1 to 100. Forms a rectangle (width × height).</p>
+            </div>
+            <div className="bg-gradient-to-r from-gray-900/70 to-gray-800/70 border border-gray-700 rounded p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-gray-300 text-sm font-semibold">Pricing</p>
+                <p className="text-gray-400 text-xs">Special launch offer valid through 20 Dec 2025</p>
+              </div>
+              <div className="text-right">
+                <span className="text-gray-500 text-sm line-through mr-2">$2.00</span>
+                <span className="text-green-400 text-2xl font-bold">$1.50</span>
+                <span className="text-gray-400 text-sm ml-2">per pixel</span>
+              </div>
+              {pixelCount > 0 && (
+                <div className="sm:text-right text-sm text-gray-300">
+                  <span className="font-semibold">{pixelCount}</span> pixels ={' '}
+                  <span className="text-green-400 font-semibold">
+                    ${totalCost.toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
             <GridSelector 
               selectedCells={selectedCells}

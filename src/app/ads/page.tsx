@@ -7,13 +7,13 @@ export default function AdsWall() {
   const router = useRouter();
   const slots = new Array(7).fill(0);
   
-  // 10-minute countdown then redirect to main grid page
-  const [secondsLeft, setSecondsLeft] = useState<number>(600);
+  // 25-minute countdown then redirect to main grid page
+  const [secondsLeft, setSecondsLeft] = useState<number>(1500);
   const [now, setNow] = useState<string>('');
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   
   useEffect(() => {
-    setSecondsLeft(600);
+    setSecondsLeft(1500);
     setNow(formatTime(new Date()));
     const id = window.setInterval(() => {
       setSecondsLeft((s) => {

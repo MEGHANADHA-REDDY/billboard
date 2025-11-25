@@ -332,12 +332,12 @@ export default function Landing() {
   };
 
 
-  // 10-minute countdown then redirect to ads page
-  const [secondsLeft, setSecondsLeft] = useState<number>(600);
+  // 35-minute countdown then redirect to ads page
+  const [secondsLeft, setSecondsLeft] = useState<number>(2100);
   const [now, setNow] = useState<string>('');
   const formatTime = (date: Date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   useEffect(() => {
-    setSecondsLeft(600);
+    setSecondsLeft(2100);
     setNow(formatTime(new Date()));
     const id = window.setInterval(() => {
       setSecondsLeft((s) => {
